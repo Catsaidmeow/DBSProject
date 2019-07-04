@@ -94,6 +94,7 @@ def get_count_retweeted(UID, TID):
                     FROM "Retweets" as "R" 
                     WHERE "R"."TID" = %s
                     AND "R"."UID" = %s
+                    AND not "R"."TID" = "R"."UID" 
                     """, (TID, UID))
 
     res = cur.fetchone()[0]
