@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+    <script src="/static/SexyTable.js"></script>
+    <link rel="stylesheet" href="/static/SexyTable.css">
+    <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+
+    <style type="text/css">
+        .area { fill: #8cf; stroke: #03a;}
+
+        body {
+            font: 10px sans-serif;
+        }
+        .axis path,
+        .axis line {
+            fill: none;
+            stroke: #000;
+            shape-rendering: crispEdges;
+        }
+        /*.x.axis path {
+            display: none;
+        }*/
+        .line {
+            fill: none;
+            stroke: steelblue;
+            stroke-width: 1.5px;
+        }
+    </style>
+
+    <script>
+        var normal = function(mean, variance) {
+        // Precompute portion of the function that does not depend on x
+        var predicate = 1 / Math.sqrt(variance * 2 * Math.PI);
+
+        return function(x) {
+        // See the pdf function from http://en.wikipedia.org/wiki/Normal_distribution
+        return predicate * Math.exp( -Math.pow(x - mean, 2) / (2 * variance));
+        };
+        };
+
+        // Calculate the sample variance of a data series.
+        var variance = function(series) {
+        var mean = d3.mean(series);
+
+        return d3.sum(series.map(function(element) {
+        return Math.pow(element - mean, 2);
+        })) / (series.length - 1);
+        };
+
+    </script>
+
+</head>
+<body>
+
+<h1><a href="/">Mini Facebook</a></h1>
+
+
+<form action="/user">
+    ScreenName or ID:<br>
+    <input type="text" name="user_name" placeholder="Search..">
+    <input type="submit" class="myButton" value="Submit">
+</form>
+
+<br><br>
+
+{% if data %}
+    <div class="sexy-table">
+        <ul>
+            <li style="text-align: right;">UserID</li>
+
+            <li style="text-align: left;">{{ data.User.id }}</li>
+        </ul>
+        <ul>
+            <li style="text-align: right;">ScreenName</li>
+            <li style="text-align: left;"> {{ data.User.screenName }}</li>
+        </ul>
+        <ul>
+            <li style="text-align: right;">Glasses</li>
+            <li style="text-align: left;"> {{ data.User.verified }}</li>
+        </ul>
+        <ul>
+            <li style="text-align: right;">Income</li>
+            <li style="text-align: left;"> {{ data.User.Income }}</li>
+        </ul>
+        <ul>
+            <li style="text-align: right;">Age</li>
+            <li style="text-align: left;"> {{ data.User.Age }}</li>
+        </ul>
+        <ul>
+            <li style="text-align: right;">Fans</li>
+            <li> {{ data.User.Fans }}</li>
+        </ul>
+    </div>
+
+    <hr>
+    <br>
+    <div style="text-align: center;">Income Distribution<br>
+    <svg height="200" width="400"></svg>
+    </div>
+    <br>
+    <script>
+        let min = Math.floor(d3.min({{ data.Incomes }})),
+            max = Math.ceil(d3.max({{ data.Incomes }}));
+
+        // Call the normal() function to get a function that we can call with just x.
+        // Set the distribution parameters to be the same as that of the data.
+        var normalTransform = normal(d3.mean({{ data.Incomes }}), variance({{ data.Incomes }}));
+
+        // Fill xSeries with all natural numbers between the min and max, inclusive
+        var xSeries = [];
+
+        for (var i = min; i <= max; i++) { xSeries.push(i); }
+
+        // Generate corresponding y values from the x values
+        var ySeries = xSeries.map(normalTransform);
+
+        // Combine the x and y series for d3 to have [x, y] tuples to iterate over
+        var combinedSeries = d3.zip(xSeries, ySeries);
+
+        //
+        // Graph
+        //
+
+        var svg = d3.select('svg'),
+            xScale = d3.scale.linear()
+                .domain([min, max])
+                .range([0, svg.attr('width')]),
+            yScale = d3.scale.linear()
+                .domain([d3.min(ySeries), d3.max(ySeries)])
+                .range([svg.attr('height'), 0]), // Switched because y builds downward
+            area = d3.svg.area()
+                .interpolate('cardinal')
+                .x(function(d) { return xScale(d[0]); })
+                .y0(svg.attr('height'))
+                .y1(function(d) { return yScale(d[1]); });
+
+        svg.append('path').datum(combinedSeries)
+            .attr('class', 'area')
+            .attr('d', area);
+
+        // Add the x Axis
+        svg.append("g")
+            .attr("transform", "translate(0," + height + ")")
+            .call(d3.axisBottom(x));
+
+        // text label for the x axis
+        svg.append("text")
+            .attr("transform",
+                "translate(" + (width/2) + " ," +
+                (height + margin.top + 20) + ")")
+            .style("text-anchor", "middle")
+            .text("Date");
+    </script>
+    <!-- {{ data.Incomes }} -->
+    <br>
+    <!-- {{ data.Ages }} -->
+    <br>
+    <hr>
+
+    <div class="sexy-table">
+        <ul>
+            <li>Follower</li>
+            <li>Dates</li>
+            <li>Marriages</li>
+        </ul>
+        {% for i in range(([data.Fans|length, data.Married|length, data.Dating|length]|sort)[-1]) %}
+            <ul>
+                <li>
+                    {% if data.Fans|length > i %}
+                    {%  for id, url in data.Fans[i].items() %}
+                        <a href={{ url }}>{{ id }}</a>
+                    {% endfor %}
+                    {% endif %}
+                </li>
+                <li>
+                    {% if data.Dating|length > i %}
+                    {%  for id, url in data.Dating[i].items() %}
+                        <a href={{ url }}>{{ id }}</a>
+                    {% endfor %}
+                    {% endif %}
+                </li>
+                <li>
+                    {% if data.Married|length > i %}
+                    {%  for id, url in data.Married[i].items() %}
+                        <a href={{ url }}>{{ id }}</a>
+                    {% endfor %}
+                    {% endif %}
+                </li>
+            </ul>
+        {% endfor %}
+    </div>
+
+{% endif %}
+
+</body>
+
+<style type="text/css">
+
+    tr:nth-child(even) {
+        background-color: #dddddd;
+    }
+    form {
+        text-align: center;
+    }
+
+    h1 {
+        text-align: center;
+    }
+    .myButton {
+        background-color:#47d16c;
+        -moz-border-radius:28px;
+        -webkit-border-radius:28px;
+        border-radius:28px;
+        border:1px solid #18ab29;
+        display:inline-block;
+        cursor:pointer;
+        color:#ffffff;
+        font-family:Arial;
+        font-size:17px;
+        padding:16px 31px;
+        text-decoration:none;
+        text-shadow:0px 1px 0px #0d210a;
+    }
+    .myButton:hover {
+        background-color:#5cbf2a;
+    }
+    .myButton:active {
+        position:relative;
+        top:1px;
+    }
+
+    input[type=text] {
+        width: 80%;
+        box-sizing: border-box;
+        border: 2px solid #ccc;
+        border-radius: 4px;
+        font-size: 16px;
+        background-color: white;
+        {# background-image: url('searchicon.png');
+        background-position: 10px 10px;
+        background-repeat: no-repeat; #}
+        padding: 12px 20px 12px 40px;
+    }
+
+</style>
+
+</html>
