@@ -1,0 +1,5 @@
+*.csv
+er.afphoto
+er.png
+*.pdf
+write_to_db.py
